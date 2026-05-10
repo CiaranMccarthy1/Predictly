@@ -1,4 +1,4 @@
-# Arbitrage Platform - Prediction Market Engine
+# Predictly - Prediction Market Engine
 
 A high-performance Go engine designed for prediction market arbitrage across platforms such as Kalshi and Polymarket. This system identifies risk-free profit opportunities by comparing real-time order book data across multiple exchanges and executing atomic, cross-platform trades.
 
