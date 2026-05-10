@@ -83,5 +83,8 @@ The platform enforces strict risk parameters to protect follower capital:
 - **RiskFraction**: Percentage of a user's total balance deployed per signal.
 - **Pro-Rata Compression**: Dynamically scales order sizes if cumulative demand exceeds available market liquidity.
 
+## Limitations
+At the minute I have no way to run this in production mode as Kalshi is not currenntly available in Ireland 
+
 ## License
 Proprietary Software - All Rights Reserved
