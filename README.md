@@ -1,28 +1,28 @@
 # Arbitrage Platform - Prediction Market Engine
 
-A high-performance Go engine designed for prediction market arbitrage across platforms such as Kalshi and Polymarket. This system provides event-driven market data ingestion, quantitative edge detection through expected value modeling, and a concurrent master-follower execution system for automated copy-trading.
+A high-performance Go engine designed for prediction market arbitrage across platforms such as Kalshi and Polymarket. This system identifies risk-free profit opportunities by comparing real-time order book data across multiple exchanges and executing atomic, cross-platform trades.
 
 ## Key Features
 
-- **High-Throughput Scrapers**: WebSocket-based ingestion for Kalshi and Polymarket utilizing automatic reconnection logic and bounded worker pools for parallel message processing.
-- **Quantitative EV Model**: Real-time Expected Value (EV) calculation engine that evaluates exchange odds against proprietary model probability estimates.
-- **Copy-Trader Engine**: Concurrent signal broadcasting system featuring a thread-safe user registry and sophisticated pro-rata allocation logic.
-- **Resilient Execution**: Integrated token-bucket rate limiting to ensure compliance with exchange API constraints and comprehensive graceful shutdown procedures.
-- **Observability**: Atomic global performance counters providing real-time telemetry for signals evaluated, trades executed, and follower fills.
-- **Containerized Deployment**: Multi-stage Docker configuration targeting Google's distroless base image for optimized security and minimal runtime footprint.
+- **Cross-Exchange Arbitrage**: Identifies risk-free discrepancies where `Price A (YES) + Price B (NO) < $1.00`. The engine mathematically guarantees profit by matching identical contracts across disparate platforms.
+- **High-Throughput Scrapers**: Native WebSocket integration for Kalshi and Polymarket with automatic reconnection logic and bounded worker pools for parallel message parsing.
+- **Dual-Leg Execution**: Concurrent signal system that simultaneously executes "YES" and "NO" positions for every follower to lock in arbitrage spreads.
+- **Live & Simulation Modes**: Support for high-fidelity simulation (Paper Trading) and live data ingestion via Kalshi Demo and Polymarket CLOB endpoints.
+- **Resilient Infrastructure**: Integrated token-bucket rate limiting and thread-safe user registries to protect capital and comply with API constraints.
+- **Containerized Deployment**: Multi-stage Docker configuration targeting Google's distroless base image for optimized security and performance.
 
 ## Architecture
 
 ```mermaid
 graph TD
     subgraph Market Ingestion
-        K[Kalshi Scraper] --> |Contracts| C[Contracts Channel]
-        P[Polymarket Scraper] --> |Contracts| C
+        K[Kalshi Scraper] --> |Ticker Updates| TE[Trade Engine]
+        P[Polymarket Scraper] --> |Book Updates| TE
     end
 
-    subgraph Analysis
-        C --> TE[Trade Engine]
-        TE --> |+EV Signals| S[Signals Channel]
+    subgraph Arbitrage Analysis
+        TE --> |Cross-Match| Arb[Arbitrage Calculator]
+        Arb --> |Dual Signals| S[Signals Channel]
     end
 
     subgraph Execution
@@ -31,9 +31,9 @@ graph TD
         CT --> |Pro-rata Allocation| F2[Follower N]
     end
 
-    subgraph Observability
-        TE -.-> M[Atomic Metrics]
-        CT -.-> M
+    subgraph Simulation
+        CT -.-> MB[Mock Broker]
+        MB -.-> PnL[Deterministic PnL Update]
     end
 ```
 
@@ -43,49 +43,45 @@ graph TD
 arbitrage-platform/
 ├── cmd/
 │   └── server/
-│       └── main.go           # Application entry point and component wiring
+│       └── main.go           # Entry point & component wiring
 ├── internal/
-│   ├── domain/               # Core domain models and business types
-│   │   ├── market.go         # Contract and signal definitions
-│   │   ├── trade.go          # Allocation and status types
-│   │   └── user.go           # Portfolio and risk configuration
-│   ├── market/               # Market infrastructure and data ingestion
-│   │   ├── scraper.go        # WebSocket ingestion and worker pool management
-│   │   ├── ev_calculator.go  # Quantitative expected value model
-│   │   └── rate_limiter.go   # Token-bucket rate limiting implementation
-│   └── service/              # Core business services
-│       ├── trade_engine.go   # Signal analysis and evaluation loop
-│       ├── copy_trader.go    # Signal broadcasting and allocation service
+│   ├── domain/               # Core domain models
+│   │   ├── market.go         # Contract & signal types
+│   │   ├── trade.go          # Allocation & status types
+│   │   └── user.go           # Portfolio & risk config
+│   ├── market/               # Infrastructure
+│   │   ├── scraper.go        # Live WebSocket ingestion
+│   │   ├── mock_scraper.go   # Simulated market data
+│   │   ├── ev_calculator.go  # Arbitrage logic & math
+│   │   └── rate_limiter.go   # Token-bucket implementation
+│   └── service/              # Core Services
+│       ├── trade_engine.go   # Cross-exchange matching loop
+│       ├── copy_trader.go    # Signal broadcasting service
 │       └── metrics.go        # Global performance instrumentation
-├── Dockerfile                # Multi-stage production build configuration
-├── go.mod                    # Dependency management
-└── go.sum
 ```
 
 ## Getting Started
 
-### Prerequisites
-- Go 1.23 or higher
-- Docker (optional for containerized execution)
-
-### Local Execution
+### Local Simulation (Demo)
+By default, the platform runs in a high-fidelity simulation mode with generated market data:
 ```bash
 cd arbitrage-platform
-go mod tidy
 go run ./cmd/server
 ```
 
-### Container Build and Execution
+### Live Data Mode (Mock Test)
+To connect to real WebSocket feeds from Kalshi and Polymarket:
 ```bash
-docker build -t arbitrage-platform .
-docker run arbitrage-platform
+# PowerShell
+$env:USE_LIVE_API="true"
+go run ./cmd/server
 ```
 
-## Risk Management and Compliance
+## Risk Management
 The platform enforces strict risk parameters to protect follower capital:
-- **MaxPositionUSD**: Establishes a definitive ceiling for total exposure per follower per individual trade signal.
-- **RiskFraction**: Defines the percentage of a user's total balance deployed per signal.
-- **Pro-Rata Compression**: Dynamically scales order sizes if cumulative follower demand exceeds available market liquidity, ensuring equitable execution.
+- **MaxPositionUSD**: Definitive ceiling for total exposure per follower per trade.
+- **RiskFraction**: Percentage of a user's total balance deployed per signal.
+- **Pro-Rata Compression**: Dynamically scales order sizes if cumulative demand exceeds available market liquidity.
 
 ## License
 Proprietary Software - All Rights Reserved

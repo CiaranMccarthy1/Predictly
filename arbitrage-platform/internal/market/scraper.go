@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strconv"
 	"sync"
 	"time"
 
@@ -92,6 +93,31 @@ func (s *Scraper) connectAndStream(ctx context.Context) error {
 
 	log.Printf("[Scraper:%s] connected to %s", s.exchange, s.wsURL)
 
+	// Send Subscription Message
+	var subMsg interface{}
+	if s.exchange == "kalshi" {
+		subMsg = map[string]interface{}{
+			"id":  1,
+			"cmd": "subscribe",
+			"params": map[string]interface{}{
+				"channels": []string{"ticker"},
+			},
+		}
+	} else if s.exchange == "polymarket" {
+		subMsg = map[string]interface{}{
+			"type":   "subscribe",
+			"assets": []string{"all"},
+		}
+	}
+
+	if subMsg != nil {
+		if err := conn.WriteJSON(subMsg); err != nil {
+			log.Printf("[Scraper:%s] failed to send subscription: %v", s.exchange, err)
+			return err
+		}
+		log.Printf("[Scraper:%s] subscription message sent", s.exchange)
+	}
+
 	// Internal message bus for the worker pool
 	msgCh := make(chan []byte, 256)
 
@@ -161,9 +187,69 @@ func (s *Scraper) worker(ctx context.Context, id int, msgCh <-chan []byte) {
 // Exchange-specific parsing logic goes here.
 func (s *Scraper) processMessage(ctx context.Context, raw []byte) {
 	var contract domain.MarketContract
-	if err := json.Unmarshal(raw, &contract); err != nil {
-		log.Printf("[Scraper:%s] unmarshal error: %v", s.exchange, err)
-		return
+
+	if s.exchange == "kalshi" {
+		// Parse Kalshi Ticker Schema
+		var kalshiMsg struct {
+			Type string `json:"type"`
+			Msg  struct {
+				Ticker   string `json:"ticker"`
+				YesPrice int    `json:"yes_price"`
+				NoPrice  int    `json:"no_price"`
+			} `json:"msg"`
+		}
+		if err := json.Unmarshal(raw, &kalshiMsg); err != nil {
+			return
+		}
+		if kalshiMsg.Type != "ticker" || kalshiMsg.Msg.Ticker == "" {
+			return // Ignore non-ticker messages
+		}
+		
+		contract = domain.MarketContract{
+			ID:        kalshiMsg.Msg.Ticker,
+			Exchange:  s.exchange,
+			YesOdds:   float64(kalshiMsg.Msg.YesPrice) / 100.0,
+			NoOdds:    float64(kalshiMsg.Msg.NoPrice) / 100.0,
+			Liquidity: 5000.0, // Placeholder, normally fetched from orderbook depth
+		}
+	} else if s.exchange == "polymarket" {
+		// Parse Polymarket Orderbook Schema
+		var polyMsg struct {
+			Event  string `json:"event"`
+			Market string `json:"market"`
+			Bids   []struct {
+				Price string `json:"price"`
+				Size  string `json:"size"`
+			} `json:"bids"`
+		}
+		
+		if err := json.Unmarshal(raw, &polyMsg); err != nil {
+			return
+		}
+		
+		// Only process book updates that have bids
+		if polyMsg.Event != "book" && polyMsg.Event != "price_change" || len(polyMsg.Bids) == 0 {
+			return
+		}
+		
+		yesOdds, err := strconv.ParseFloat(polyMsg.Bids[0].Price, 64)
+		if err != nil || yesOdds <= 0 {
+			return
+		}
+		
+		contract = domain.MarketContract{
+			ID:        polyMsg.Market,
+			Exchange:  s.exchange,
+			YesOdds:   yesOdds,
+			NoOdds:    1.0 - yesOdds, // Polymarket binary complementary pricing
+			Liquidity: 5000.0, // Placeholder
+		}
+	} else {
+		// Generic fallback
+		if err := json.Unmarshal(raw, &contract); err != nil {
+			log.Printf("[Scraper:%s] unmarshal error: %v", s.exchange, err)
+			return
+		}
 	}
 
 	contract.Exchange = s.exchange

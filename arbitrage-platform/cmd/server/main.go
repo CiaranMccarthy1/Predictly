@@ -31,9 +31,30 @@ func main() {
 	kalshiLimiter := market.NewTokenBucket(10, 10)
 	polymarketLimiter := market.NewTokenBucket(5, 5)
 
-	// ── Scrapers (Mocked for Portfolio) ─────────────────────────────
-	kalshiScraper := market.NewMockScraper("kalshi", kalshiLimiter, contractsCh)
-	polymarketScraper := market.NewMockScraper("polymarket", polymarketLimiter, contractsCh)
+	// ── Scrapers (Configurable via Environment) ───────────────────────
+	useLiveAPI := os.Getenv("USE_LIVE_API") == "true"
+	
+	var kalshiScraper, polymarketScraper interface {
+		Run(context.Context)
+	}
+
+	if useLiveAPI {
+		log.Println("[main] Running in LIVE API mode")
+		kalshiScraper = market.NewScraper(
+			"kalshi",
+			"wss://external-api-ws.demo.kalshi.co/trade-api/ws/v2", // Kalshi Demo Environment
+			kalshiLimiter, contractsCh, 4,
+		)
+		polymarketScraper = market.NewScraper(
+			"polymarket",
+			"wss://ws-subscriptions-clob.polymarket.com/ws/market",
+			polymarketLimiter, contractsCh, 4,
+		)
+	} else {
+		log.Println("[main] Running in SIMULATION mode (use USE_LIVE_API=true to switch)")
+		kalshiScraper = market.NewMockScraper("kalshi", kalshiLimiter, contractsCh)
+		polymarketScraper = market.NewMockScraper("polymarket", polymarketLimiter, contractsCh)
+	}
 
 	// ── Trade Engine ─────────────────────────────────────────────────
 	engine := service.NewTradeEngine(contractsCh, signalsCh)
