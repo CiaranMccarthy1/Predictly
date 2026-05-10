@@ -15,63 +15,73 @@ const (
 	minLiquidity = 500.0
 )
 
-// Analyze evaluates a MarketContract against our model probability and
-// returns a TradeSignal if a +EV edge exists.
-//
-// EV formula (binary market):
-//
-//	Side YES → EV = modelProb / yesOdds - 1
-//	Side NO  → EV = (1-modelProb) / noOdds - 1
-//
-// Positive EV means we expect profit per dollar staked over a large
-// number of identical bets.
-func Analyze(
-	c domain.MarketContract,
-	modelProb float64,
+// AnalyzeArbitrage compares order book prices across two exchanges for the same contract
+// and returns trade signals if a risk-free arbitrage exists.
+func AnalyzeArbitrage(
+	c1, c2 domain.MarketContract,
 	masterCapitalUSD float64,
-) (domain.TradeSignal, bool) {
-	if c.Liquidity < minLiquidity {
-		return domain.TradeSignal{}, false
+) ([]domain.TradeSignal, bool) {
+	
+	liquidity := c1.Liquidity
+	if c2.Liquidity < liquidity {
+		liquidity = c2.Liquidity
 	}
 
-	evYes := calcEV(modelProb, c.YesOdds)
-	evNo := calcEV(1-modelProb, c.NoOdds)
-
-	var side string
-	var ev float64
-
-	switch {
-	case evYes >= evNo && evYes >= minEdge:
-		side = "YES"
-		ev = evYes
-	case evNo > evYes && evNo >= minEdge:
-		side = "NO"
-		ev = evNo
-	default:
-		return domain.TradeSignal{}, false
+	if liquidity < minLiquidity {
+		return nil, false
 	}
 
-	// Size the position proportionally to edge strength, but never
-	// exceed available liquidity.
-	size := masterCapitalUSD * ev
-	if size > c.Liquidity {
-		size = c.Liquidity
+	// Arbitrage Check 1: Buy YES on c1, Buy NO on c2
+	cost1 := c1.YesOdds + c2.NoOdds
+	
+	// Arbitrage Check 2: Buy NO on c1, Buy YES on c2
+	cost2 := c1.NoOdds + c2.YesOdds
+
+	var signals []domain.TradeSignal
+	var edge float64
+
+	if cost1 < 1.0 - minEdge {
+		// Guaranteed profit: cost < $1.00, payout = $1.00
+		edge = 1.0 - cost1
+		size := masterCapitalUSD * edge
+		if size > liquidity {
+			size = liquidity
+		}
+		
+		signals = append(signals, domain.TradeSignal{
+			Contract:   c1,
+			Side:       "YES",
+			MasterSize: size,
+			EV:         edge,
+		})
+		signals = append(signals, domain.TradeSignal{
+			Contract:   c2,
+			Side:       "NO",
+			MasterSize: size,
+			EV:         edge,
+		})
+		return signals, true
+	} else if cost2 < 1.0 - minEdge {
+		edge = 1.0 - cost2
+		size := masterCapitalUSD * edge
+		if size > liquidity {
+			size = liquidity
+		}
+
+		signals = append(signals, domain.TradeSignal{
+			Contract:   c1,
+			Side:       "NO",
+			MasterSize: size,
+			EV:         edge,
+		})
+		signals = append(signals, domain.TradeSignal{
+			Contract:   c2,
+			Side:       "YES",
+			MasterSize: size,
+			EV:         edge,
+		})
+		return signals, true
 	}
 
-	return domain.TradeSignal{
-		Contract:   c,
-		Side:       side,
-		MasterSize: size,
-		EV:         ev,
-		ModelProb:  modelProb,
-	}, true
-}
-
-// calcEV computes expected value for a given probability and odds.
-// Returns 0 if odds are zero to avoid division by zero.
-func calcEV(prob, odds float64) float64 {
-	if odds <= 0 {
-		return 0
-	}
-	return prob/odds - 1
+	return nil, false
 }

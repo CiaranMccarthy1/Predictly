@@ -88,11 +88,16 @@ func (ct *CopyTrader) proRataAllocate(sig domain.TradeSignal, users []*domain.Us
 
 	allocs := make([]domain.FollowerAllocation, 0, len(demands))
 	for _, d := range demands {
+		price := sig.Contract.YesOdds
+		if sig.Side == "NO" {
+			price = sig.Contract.NoOdds
+		}
 		allocs = append(allocs, domain.FollowerAllocation{
 			UserID:     d.user.ID,
 			ContractID: sig.Contract.ID,
 			Side:       sig.Side,
 			AllocUSD:   d.amount * scaleFactor,
+			Price:      price,
 			Status:     domain.StatusPending,
 		})
 	}

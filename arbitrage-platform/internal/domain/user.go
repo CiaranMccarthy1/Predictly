@@ -13,6 +13,7 @@ type RiskSettings struct {
 type User struct {
 	ID           string
 	BalanceUSD   float64
+	TotalPnL     float64 // Realized Profit and Loss
 	RiskSettings RiskSettings
 }
 
@@ -47,4 +48,39 @@ func (r *UserRegistry) All() []*User {
 		out = append(out, u)
 	}
 	return out
+}
+
+// DeductBalance safely deducts the specified amount from the user's balance.
+// It returns the new balance and a boolean indicating if the user was found.
+func (r *UserRegistry) DeductBalance(id string, amount float64) (float64, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	u, ok := r.users[id]
+	if !ok {
+		return 0, false
+	}
+	
+	// Ensure balance doesn't go below 0
+	if u.BalanceUSD >= amount {
+		u.BalanceUSD -= amount
+	} else {
+		u.BalanceUSD = 0
+	}
+	
+	return u.BalanceUSD, true
+}
+
+// CreditBalance safely adds the specified amount to the user's balance and updates PnL.
+func (r *UserRegistry) CreditBalance(id string, amount float64, pnl float64) (float64, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	u, ok := r.users[id]
+	if !ok {
+		return 0, false
+	}
+	
+	u.BalanceUSD += amount
+	u.TotalPnL += pnl
+	
+	return u.BalanceUSD, true
 }

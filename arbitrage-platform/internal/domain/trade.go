@@ -25,5 +25,6 @@ type FollowerAllocation struct {
 	ContractID string
 	Side       string
 	AllocUSD   float64 // Pro-rata allocation in USD
+	Price      float64 // Execution price (odds)
 	Status     TradeStatus
 }
