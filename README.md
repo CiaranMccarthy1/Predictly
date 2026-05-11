@@ -1,15 +1,13 @@
-# Predictly - Prediction Market Engine
+# Predictly — Cross-Exchange Market Scanner
 
-A high-performance Go engine designed for prediction market arbitrage across platforms such as Kalshi and Polymarket. This system identifies risk-free profit opportunities by comparing real-time order book data across multiple exchanges and executing atomic, cross-platform trades.
+A Go engine that scans prediction market order books across platforms (Kalshi, Polymarket) to identify theoretical mispricings. It ingests real-time WebSocket feeds, evaluates pricing discrepancies, and simulates execution to estimate P&L before any capital is deployed.
 
-## Key Features
+## What It Actually Does
 
-- **Cross-Exchange Arbitrage**: Identifies risk-free discrepancies where `Price A (YES) + Price B (NO) < $1.00`. The engine mathematically guarantees profit by matching identical contracts across disparate platforms.
-- **High-Throughput Scrapers**: Native WebSocket integration for Kalshi and Polymarket with automatic reconnection logic and bounded worker pools for parallel message parsing.
-- **Dual-Leg Execution**: Concurrent signal system that simultaneously executes "YES" and "NO" positions for every follower to lock in arbitrage spreads.
-- **Live & Simulation Modes**: Support for high-fidelity simulation (Paper Trading) and live data ingestion via Kalshi Demo and Polymarket CLOB endpoints.
-- **Resilient Infrastructure**: Integrated token-bucket rate limiting and thread-safe user registries to protect capital and comply with API constraints.
-- **Containerized Deployment**: Multi-stage Docker configuration targeting Google's distroless base image for optimized security and performance.
+- **Cross-Exchange Scanning**: Detects pricing discrepancies where `Price(YES on A) + Price(NO on B) < $1.00`. This indicates a *theoretical* locked-in margin if both legs can be filled at quoted sizes. In practice, liquidity, fees, and fill latency often erode or eliminate the edge.
+- **WebSocket Ingestion**: Native scrapers for Kalshi and Polymarket with automatic reconnection, bounded worker pools, and token-bucket rate limiting.
+- **Simulated Execution**: Paper-trading mode that tracks hypothetical fills and P&L deterministically. No live trading has been run.
+- **Risk Controls**: Position caps, balance-based sizing, and pro-rata allocation logic to model capital constraints realistically.
 
 ## Architecture
 
@@ -62,15 +60,15 @@ arbitrage-platform/
 
 ## Getting Started
 
-### Local Simulation (Demo)
-By default, the platform runs in a high-fidelity simulation mode with generated market data:
+### Local Simulation (Default)
+The platform runs in paper-trading mode with generated market data:
 ```bash
 cd arbitrage-platform
 go run ./cmd/server
 ```
 
-### Live Data Mode (Mock Test)
-To connect to real WebSocket feeds from Kalshi and Polymarket:
+### Live Data Ingestion
+To connect to real WebSocket feeds (read-only, no execution):
 ```bash
 # PowerShell
 $env:USE_LIVE_API="true"
@@ -78,13 +76,15 @@ go run ./cmd/server
 ```
 
 ## Risk Management
-The platform enforces strict risk parameters to protect follower capital:
-- **MaxPositionUSD**: Definitive ceiling for total exposure per follower per trade.
-- **RiskFraction**: Percentage of a user's total balance deployed per signal.
-- **Pro-Rata Compression**: Dynamically scales order sizes if cumulative demand exceeds available market liquidity.
+- **MaxPositionUSD**: Hard cap on notional exposure per follower per trade.
+- **RiskFraction**: Percentage of total balance allocated per signal.
+- **Pro-Rata Compression**: Scales order sizes down if aggregate demand exceeds modeled liquidity.
 
-## Limitations
-At the minute I have no way to run this in production mode as Kalshi is not currenntly available in Ireland 
+## Limitations & Honest Context
+
+- **Simulation only**: No live trades have been executed. Slippage, fees, and API latency are modeled, not measured.
+- **Geographic restriction**: Kalshi is unavailable in Ireland, so live testing against real money is not currently possible.
+- **Market assumptions**: The `YES + NO < $1.00` condition is necessary but not sufficient for profitable execution. Quote sizes, settlement timing, and platform fees must all be verified per opportunity.
 
 ## License
-Proprietary Software - All Rights Reserved
+Proprietary Software — All Rights Reserved
