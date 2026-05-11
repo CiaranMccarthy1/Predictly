@@ -7,7 +7,7 @@ A Go engine that scans prediction market order books across platforms (Kalshi, P
 - **Cross-Exchange Scanning**: Detects pricing discrepancies where `Price(YES on A) + Price(NO on B) < $1.00`. This indicates a *theoretical* locked-in margin if both legs can be filled at quoted sizes. In practice, liquidity, fees, and fill latency often erode or eliminate the edge.
 - **WebSocket Ingestion**: Native scrapers for Kalshi and Polymarket with automatic reconnection, bounded worker pools, and token-bucket rate limiting.
 - **Simulated Execution**: Paper-trading mode that tracks hypothetical fills and P&L deterministically. No live trading has been run.
-- **Risk Controls**: Position caps, balance-based sizing, and pro-rata allocation logic to model capital constraints realistically.
+- **Risk Controls**: Position caps, balance-based sizing, and allocation logic to model capital constraints realistically.
 
 ## Architecture
 
@@ -25,8 +25,7 @@ graph TD
 
     subgraph Execution
         S --> CT[Copy Trader]
-        CT --> |Pro-rata Allocation| F1[Follower 1]
-        CT --> |Pro-rata Allocation| F2[Follower N]
+        CT --> |Allocation| U[User]
     end
 
     subgraph Simulation
@@ -76,9 +75,9 @@ go run ./cmd/server
 ```
 
 ## Risk Management
-- **MaxPositionUSD**: Hard cap on notional exposure per follower per trade.
+- **MaxPositionUSD**: Hard cap on notional exposure per user per trade.
 - **RiskFraction**: Percentage of total balance allocated per signal.
-- **Pro-Rata Compression**: Scales order sizes down if aggregate demand exceeds modeled liquidity.
+- **Allocation Compression**: Scales order sizes down if aggregate demand exceeds modeled liquidity.
 
 ## Limitations & Honest Context
 

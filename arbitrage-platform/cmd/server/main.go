@@ -33,7 +33,7 @@ func main() {
 
 	// ── Scrapers (Configurable via Environment) ───────────────────────
 	useLiveAPI := os.Getenv("USE_LIVE_API") == "true"
-	
+
 	var kalshiScraper, polymarketScraper interface {
 		Run(context.Context)
 	}
@@ -60,7 +60,7 @@ func main() {
 	engine := service.NewTradeEngine(contractsCh, signalsCh)
 
 	// ── Execution Stub (with Settlement Simulation) ──────────────────
-	exchangeExecuteFn := func(ctx context.Context, alloc domain.FollowerAllocation) error {
+	exchangeExecuteFn := func(ctx context.Context, alloc domain.UserAllocation) error {
 		newBal, found := registry.DeductBalance(alloc.UserID, alloc.AllocUSD)
 		if !found {
 			return fmt.Errorf("user %s not found", alloc.UserID)
@@ -117,18 +117,15 @@ func main() {
 	log.Println("[main] graceful shutdown complete")
 }
 
-
 func seedUsers(r *domain.UserRegistry) {
-	for i := 1; i <= 5; i++ {
-		r.Set(&domain.User{
-			ID:         fmt.Sprintf("user-%d", i),
-			BalanceUSD: float64(1000 * i),
-			RiskSettings: domain.RiskSettings{
-				MaxPositionUSD: 500,
-				RiskFraction:   0.05,
-			},
-		})
-	}
+	r.Set(&domain.User{
+		ID:         "user-1",
+		BalanceUSD: 1000,
+		RiskSettings: domain.RiskSettings{
+			MaxPositionUSD: 500,
+			RiskFraction:   0.05,
+		},
+	})
 }
 
 func reportMetrics(ctx context.Context, r *domain.UserRegistry) {
@@ -144,7 +141,7 @@ func reportMetrics(ctx context.Context, r *domain.UserRegistry) {
 			log.Printf("[metrics] evaluated=%d executed=%d fills=%d rejected=%d",
 				m.SignalsEvaluated.Load(),
 				m.TradesExecuted.Load(),
-				m.FollowerFills.Load(),
+				m.UserFills.Load(),
 				m.RejectedSignals.Load(),
 			)
 			log.Println("[balances]")

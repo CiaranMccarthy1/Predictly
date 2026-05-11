@@ -11,13 +11,13 @@ import (
 type CopyTrader struct {
 	signalsCh <-chan domain.TradeSignal
 	registry  *domain.UserRegistry
-	executeFn func(ctx context.Context, alloc domain.FollowerAllocation) error
+	executeFn func(ctx context.Context, alloc domain.UserAllocation) error
 }
 
 func NewCopyTrader(
 	signalsCh <-chan domain.TradeSignal,
 	registry *domain.UserRegistry,
-	executeFn func(ctx context.Context, alloc domain.FollowerAllocation) error,
+	executeFn func(ctx context.Context, alloc domain.UserAllocation) error,
 ) *CopyTrader {
 	return &CopyTrader{signalsCh: signalsCh, registry: registry, executeFn: executeFn}
 }
@@ -52,7 +52,7 @@ func (ct *CopyTrader) broadcast(ctx context.Context, sig domain.TradeSignal) {
 				log.Printf("[CopyTrader] fill error user=%s: %v", a.UserID, err)
 				return
 			}
-			Global.FollowerFills.Add(1)
+			Global.UserFills.Add(1)
 			log.Printf("[CopyTrader] filled user=%s alloc=$%.2f", a.UserID, a.AllocUSD)
 		}()
 	}
@@ -60,7 +60,7 @@ func (ct *CopyTrader) broadcast(ctx context.Context, sig domain.TradeSignal) {
 	log.Printf("[CopyTrader] broadcast complete contract=%s fills=%d", sig.Contract.ID, len(allocations))
 }
 
-func (ct *CopyTrader) proRataAllocate(sig domain.TradeSignal, users []*domain.User) []domain.FollowerAllocation {
+func (ct *CopyTrader) proRataAllocate(sig domain.TradeSignal, users []*domain.User) []domain.UserAllocation {
 	type demand struct {
 		user   *domain.User
 		amount float64
@@ -86,13 +86,13 @@ func (ct *CopyTrader) proRataAllocate(sig domain.TradeSignal, users []*domain.Us
 		scaleFactor = liquidity / totalDemand
 	}
 
-	allocs := make([]domain.FollowerAllocation, 0, len(demands))
+	allocs := make([]domain.UserAllocation, 0, len(demands))
 	for _, d := range demands {
 		price := sig.Contract.YesOdds
 		if sig.Side == "NO" {
 			price = sig.Contract.NoOdds
 		}
-		allocs = append(allocs, domain.FollowerAllocation{
+		allocs = append(allocs, domain.UserAllocation{
 			UserID:     d.user.ID,
 			ContractID: sig.Contract.ID,
 			Side:       sig.Side,

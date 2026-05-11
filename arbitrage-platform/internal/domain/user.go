@@ -3,7 +3,7 @@ package domain
 
 import "sync"
 
-// RiskSettings govern how much of a signal a follower receives.
+// RiskSettings govern how much of a signal a user receives.
 type RiskSettings struct {
 	MaxPositionUSD float64
 	RiskFraction   float64 // 0.01–1.0: portion of balance to deploy per signal
@@ -17,7 +17,7 @@ type User struct {
 	RiskSettings RiskSettings
 }
 
-// UserRegistry is a thread-safe in-memory store of all follower states.
+// UserRegistry is a thread-safe in-memory store of all user states.
 type UserRegistry struct {
 	mu    sync.RWMutex
 	users map[string]*User
@@ -59,14 +59,14 @@ func (r *UserRegistry) DeductBalance(id string, amount float64) (float64, bool) 
 	if !ok {
 		return 0, false
 	}
-	
+
 	// Ensure balance doesn't go below 0
 	if u.BalanceUSD >= amount {
 		u.BalanceUSD -= amount
 	} else {
 		u.BalanceUSD = 0
 	}
-	
+
 	return u.BalanceUSD, true
 }
 
@@ -78,9 +78,9 @@ func (r *UserRegistry) CreditBalance(id string, amount float64, pnl float64) (fl
 	if !ok {
 		return 0, false
 	}
-	
+
 	u.BalanceUSD += amount
 	u.TotalPnL += pnl
-	
+
 	return u.BalanceUSD, true
 }

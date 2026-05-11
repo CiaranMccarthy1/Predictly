@@ -7,7 +7,7 @@ import "sync/atomic"
 type Metrics struct {
 	SignalsEvaluated atomic.Int64
 	TradesExecuted   atomic.Int64
-	FollowerFills    atomic.Int64
+	UserFills        atomic.Int64
 	RejectedSignals  atomic.Int64
 }
 

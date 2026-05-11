@@ -19,8 +19,8 @@ type MasterTrade struct {
 	FilledAt float64 // actual fill price
 }
 
-// FollowerAllocation is a single user's pro-rata slice of the master trade.
-type FollowerAllocation struct {
+// UserAllocation is a single user's pro-rata slice of the master trade.
+type UserAllocation struct {
 	UserID     string
 	ContractID string
 	Side       string
