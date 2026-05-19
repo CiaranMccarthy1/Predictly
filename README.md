@@ -83,7 +83,7 @@ go run ./cmd/server
 
 - **Simulation only**: No live trades have been executed. Slippage, fees, and API latency are modeled, not measured.
 - **Geographic restriction**: Kalshi is unavailable in Ireland, so live testing against real money is not currently possible.
-- **Market assumptions**: The `YES + NO < $1.00` condition is necessary but not sufficient for profitable execution. Quote sizes, settlement timing, and platform fees must all be verified per opportunity.
+- **Market assumptions**: The `YES + NO < $1.00` condition is necessary but not sufficient for profitable execution. 
 
 ## License
 Proprietary Software — All Rights Reserved
